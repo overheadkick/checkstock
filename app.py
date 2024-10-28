@@ -6,7 +6,7 @@ import requests
 import pandas as pd
 import io
 import os
-import traceback  # สำหรับแสดงรายละเอียดของข้อผิดพลาด
+import traceback
 
 app = Flask(__name__)
 
@@ -20,7 +20,7 @@ handler = WebhookHandler(CHANNEL_SECRET)
 CSV_URL = "https://www.allonline.7eleven.co.th/affiliateExport/?exportName=Item_Stock"
 
 # ฟังก์ชันเพื่อดึงข้อมูลสินค้าจาก CSV
-def get_product_info(product_code):
+def get_product_info(product_codes):
     try:
         response = requests.get(CSV_URL, timeout=10)
         if response.status_code == 200:
@@ -30,12 +30,18 @@ def get_product_info(product_code):
 
             # ตรวจสอบว่า CSV มีคอลัมน์ 'sku' หรือไม่
             if 'sku' in df.columns:
-                product_code = str(product_code).strip()
-                product = df[df['sku'].astype(str) == product_code]
-                if not product.empty:
-                    return product.iloc[0].to_dict()
-                else:
-                    print(f"No product found for SKU: {product_code}")
+                df['sku'] = df['sku'].astype(str).str.strip()  # แปลงคอลัมน์ sku เป็นสตริงและลบช่องว่าง
+                results = []
+
+                for product_code in product_codes:
+                    product_code = product_code.strip()  # ลบช่องว่างที่ต้นและท้ายของ SKU แต่ละตัว
+                    product = df[df['sku'] == product_code]
+                    if not product.empty:
+                        results.append(product.iloc[0].to_dict())
+                    else:
+                        results.append({"sku": product_code, "name": "ไม่พบข้อมูล", "itemStock": "ไม่ระบุ"})
+
+                return results
             else:
                 print("Column 'sku' not found in CSV")
         else:
@@ -57,7 +63,6 @@ def callback():
         print("Invalid signature. Please check your channel secret and access token.")
         abort(400)
     except Exception as e:
-        # แสดงรายละเอียดข้อผิดพลาดที่เกิดขึ้น
         print("An unexpected error occurred:", e)
         traceback.print_exc()
         abort(500)
@@ -69,7 +74,8 @@ def callback():
 def handle_message(event):
     try:
         print("Received message event")
-        product_code = event.message.text.strip()
+        # แยก SKU หลายตัวออกจากข้อความที่ผู้ใช้ส่งมา โดยใช้เครื่องหมายจุลภาคหรือช่องว่างเป็นตัวแบ่ง
+        product_codes = event.message.text.split(',')
 
         # ตอบกลับทันทีเพื่อไม่ให้ reply_token หมดอายุ
         reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
@@ -80,18 +86,20 @@ def handle_message(event):
         print("Reply message sent immediately to avoid token expiry")
 
         # หลังจากนั้นค่อยประมวลผลข้อมูลสินค้า
-        product_info = get_product_info(product_code)
-        if product_info:
-            follow_up_text = (f"รหัสสินค้า: {product_info['sku']}\n"
-                              f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
-                              f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น")
+        product_info_list = get_product_info(product_codes)
+        if product_info_list:
+            follow_up_text = ""
+            for product_info in product_info_list:
+                follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
+                                   f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
+                                   f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
         else:
             follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
 
         # ส่งข้อความติดตาม
         line_bot_api.push_message(
             event.source.user_id,
-            TextSendMessage(text=follow_up_text)
+            TextSendMessage(text=follow_up_text.strip())
         )
         print("Follow-up message sent")
 
