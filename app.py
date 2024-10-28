@@ -5,6 +5,7 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import requests
 import pandas as pd
 import io
+import os  # เพิ่มการนำเข้า os
 
 # สร้าง Flask แอป
 app = Flask(__name__)
