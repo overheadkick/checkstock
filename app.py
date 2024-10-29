@@ -113,6 +113,7 @@ def monitor_stock():
                 item_stock = int(product_info[0]["itemStock"])
                 
                 # ตรวจสอบจำนวนสต็อกและส่งการแจ้งเตือน
+                print(f"Checking stock for SKU {sku}, current stock: {item_stock}")
                 if item_stock == 0:
                     # สินค้าหมด แจ้งเตือนผู้ใช้
                     for user_id in user_ids:
