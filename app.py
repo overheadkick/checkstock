@@ -24,6 +24,9 @@ CSV_URL = "https://www.allonline.7eleven.co.th/affiliateExport/?exportName=Item_
 # Dictionary สำหรับเก็บข้อมูล SKU ที่ผู้ใช้ต้องการ monitor
 monitoring_skus = {}
 
+# Set เก็บข้อความที่เคยตอบไปแล้ว เพื่อลดการตอบซ้ำ
+processed_messages = set()
+
 # ฟังก์ชันเพื่อดึงข้อมูลสินค้าจาก CSV
 def get_product_info(product_codes):
     try:
@@ -106,8 +109,17 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
+        message_id = event.message.id
         user_message = event.message.text.strip().lower()
         user_id = event.source.user_id
+
+        # ตรวจสอบว่าข้อความนี้เคยถูกประมวลผลแล้วหรือไม่
+        if message_id in processed_messages:
+            print("Duplicate message detected. Skipping processing.")
+            return
+
+        # เพิ่ม message_id ลงใน processed_messages เพื่อป้องกันการประมวลผลซ้ำ
+        processed_messages.add(message_id)
 
         if user_message.startswith("monitor"):
             sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
