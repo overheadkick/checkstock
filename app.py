@@ -66,10 +66,19 @@ def add_sku_to_monitor(user_id, sku):
         monitoring_skus[sku] = [user_id]
     print(f"Monitoring SKU {sku} for user {user_id}")
 
+# ฟังก์ชันเพื่อยกเลิกการ monitor SKU
+def remove_sku_from_monitor(user_id, sku):
+    if sku in monitoring_skus:
+        if user_id in monitoring_skus[sku]:
+            monitoring_skus[sku].remove(user_id)
+            if not monitoring_skus[sku]:
+                del monitoring_skus[sku]  # ลบ SKU ออกจาก monitoring_skus หากไม่มีผู้ใช้ monitor แล้ว
+            print(f"Stopped monitoring SKU {sku} for user {user_id}")
+
 # ฟังก์ชันตรวจสอบสต็อกสินค้า
 def monitor_stock():
     while True:
-        for sku, user_ids in monitoring_skus.items():
+        for sku, user_ids in list(monitoring_skus.items()):
             product_info = get_product_info([sku])
             if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
                 item_stock = int(product_info[0]["itemStock"])
@@ -127,6 +136,25 @@ def handle_message(event):
 
             # ตอบกลับผู้ใช้เพื่อยืนยันการ monitor
             reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
+            try:
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+            except LineBotApiError as e:
+                # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
+                print("Reply token expired, using push_message instead.")
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text=reply_text)
+                )
+
+        elif user_message.startswith("unmonitor"):
+            sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
+            remove_sku_from_monitor(user_id, sku)
+
+            # ตอบกลับผู้ใช้เพื่อยืนยันการยกเลิก monitor
+            reply_text = f"ระบบได้ยกเลิกการ monitor สินค้ารหัส {sku} เรียบร้อยแล้ว"
             try:
                 line_bot_api.reply_message(
                     event.reply_token,
