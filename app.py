@@ -86,8 +86,10 @@ def handle_message(event):
             )
             print("Reply message sent immediately to avoid token expiry")
         except LineBotApiError as e:
-            print("Error occurred while replying:", e)
+            # จับข้อยกเว้นเมื่อการใช้ reply_token ไม่สำเร็จ
+            print("Error occurred while replying with reply_token:", e)
             traceback.print_exc()
+            return
 
         # หลังจากนั้นค่อยประมวลผลข้อมูลสินค้า
         product_info_list = get_product_info(product_codes)
@@ -100,17 +102,18 @@ def handle_message(event):
         else:
             follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
 
-        # ส่งข้อความติดตาม
-        line_bot_api.push_message(
-            event.source.user_id,
-            TextSendMessage(text=follow_up_text.strip())
-        )
-        print("Follow-up message sent")
+        # ส่งข้อความติดตามด้วย push_message
+        try:
+            line_bot_api.push_message(
+                event.source.user_id,
+                TextSendMessage(text=follow_up_text.strip())
+            )
+            print("Follow-up message sent")
+        except LineBotApiError as e:
+            # จับข้อยกเว้นเมื่อการใช้ push_message ไม่สำเร็จ
+            print("Error occurred while sending push_message:", e)
+            traceback.print_exc()
 
-    except LineBotApiError as e:
-        # จับข้อยกเว้นเมื่อการส่งข้อความไปยัง LINE มีปัญหา
-        print("Error occurred while sending message:", e)
-        traceback.print_exc()
     except Exception as e:
         # แสดงรายละเอียดข้อผิดพลาดที่เกิดขึ้น
         print("An unexpected error occurred in handle_message:", e)
