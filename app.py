@@ -109,20 +109,37 @@ def handle_message(event):
         user_message = event.message.text.strip().lower()
         user_id = event.source.user_id
 
-        # ตรวจสอบว่าเป็นคำสั่ง monitor หรือไม่
-        if user_message.startswith("monitor"):
-            sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
-            add_sku_to_monitor(user_id, sku)
+        # ตรวจสอบว่าเป็น Redelivery หรือไม่
+        if hasattr(event.delivery_context, 'isRedelivery') and event.delivery_context.isRedelivery:
+            print("Redelivery detected, using push_message instead of reply_message")
+            if user_message.startswith("monitor"):
+                sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
+                add_sku_to_monitor(user_id, sku)
 
-            # ตอบกลับผู้ใช้เพื่อยืนยันการ monitor
-            reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text=reply_text)
-            )
+                # แจ้งผู้ใช้ด้วย push_message แทน reply_message
+                reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text=reply_text)
+                )
+            else:
+                # กรณีข้อความอื่นๆ (เช่นการค้นหาสินค้า)
+                handle_stock_inquiry_with_push(event)
         else:
-            # กรณีข้อความอื่นๆ (เช่นการค้นหาสินค้า)
-            handle_stock_inquiry(event)
+            # ใช้ reply_message ปกติสำหรับข้อความที่ไม่ใช่ Redelivery
+            if user_message.startswith("monitor"):
+                sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
+                add_sku_to_monitor(user_id, sku)
+
+                # ตอบกลับผู้ใช้เพื่อยืนยันการ monitor
+                reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+            else:
+                # กรณีข้อความอื่นๆ (เช่นการค้นหาสินค้า)
+                handle_stock_inquiry(event)
 
     except LineBotApiError as e:
         print("Error occurred while handling message:", e)
@@ -130,6 +147,33 @@ def handle_message(event):
     except Exception as e:
         print("An unexpected error occurred in handle_message:", e)
         traceback.print_exc()
+
+# ฟังก์ชันแยกสำหรับการค้นหาสินค้า โดยใช้ push_message แทนในกรณี Redelivery
+def handle_stock_inquiry_with_push(event):
+    user_id = event.source.user_id
+    product_codes = event.message.text.split(',')
+    reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
+
+    # แจ้งผู้ใช้ว่ากำลังดำเนินการ ด้วย push_message
+    line_bot_api.push_message(
+        user_id,
+        TextSendMessage(text=reply_text)
+    )
+
+    product_info_list = get_product_info(product_codes)
+    if product_info_list:
+        follow_up_text = ""
+        for product_info in product_info_list:
+            follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
+                               f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
+                               f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
+    else:
+        follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
+
+    line_bot_api.push_message(
+        user_id,
+        TextSendMessage(text=follow_up_text.strip())
+    )
 
 # ฟังก์ชันแยกสำหรับการค้นหาสินค้า (เดิม)
 def handle_stock_inquiry(event):
