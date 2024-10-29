@@ -81,6 +81,16 @@ def add_sku_to_monitor(user_id, sku):
         else:
             monitoring_skus[sku] = [user_id]
         print(f"Monitoring SKU {sku} for user {user_id}")
+        # แจ้งให้ผู้ใช้ทราบว่ากำลังตรวจสอบข้อมูลสินค้าระหว่าง monitor
+        reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {sku} กรุณารอสักครู่..."
+        try:
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=reply_text)
+            )
+        except LineBotApiError as e:
+            print("Error occurred while sending message:", e)
+            traceback.print_exc()
         return True
     else:
         # หากไม่มีข้อมูลสินค้าหรือมีข้อผิดพลาด
