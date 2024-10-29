@@ -79,11 +79,15 @@ def handle_message(event):
 
         # ตอบกลับทันทีเพื่อไม่ให้ reply_token หมดอายุ
         reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=reply_text)
-        )
-        print("Reply message sent immediately to avoid token expiry")
+        try:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_text)
+            )
+            print("Reply message sent immediately to avoid token expiry")
+        except LineBotApiError as e:
+            print("Error occurred while replying:", e)
+            traceback.print_exc()
 
         # หลังจากนั้นค่อยประมวลผลข้อมูลสินค้า
         product_info_list = get_product_info(product_codes)
