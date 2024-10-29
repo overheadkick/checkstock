@@ -1,6 +1,6 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
+from linebot.exceptions import InvalidSignatureError, LineBotApiError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import requests
 import pandas as pd
@@ -74,7 +74,7 @@ def callback():
 def handle_message(event):
     try:
         print("Received message event")
-        # แยก SKU หลายตัวออกจากข้อความที่ผู้ใช้ส่งมา โดยใช้เครื่องหมายจุลภาคหรือช่องว่างเป็นตัวแบ่ง
+        # แยก SKU หลายตัวออกจากข้อความที่ผู้ใช้ส่งมา โดยใช้เครื่องหมายจุลภาคเป็นตัวแบ่ง
         product_codes = event.message.text.split(',')
 
         # ตอบกลับทันทีเพื่อไม่ให้ reply_token หมดอายุ
@@ -103,6 +103,10 @@ def handle_message(event):
         )
         print("Follow-up message sent")
 
+    except LineBotApiError as e:
+        # จับข้อยกเว้นเมื่อการส่งข้อความไปยัง LINE มีปัญหา
+        print("Error occurred while sending message:", e)
+        traceback.print_exc()
     except Exception as e:
         # แสดงรายละเอียดข้อผิดพลาดที่เกิดขึ้น
         print("An unexpected error occurred in handle_message:", e)
