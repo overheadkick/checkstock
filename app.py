@@ -1,3 +1,5 @@
+import threading
+from time import sleep
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError, LineBotApiError
@@ -18,6 +20,9 @@ handler = WebhookHandler(CHANNEL_SECRET)
 
 # URL สำหรับดึงข้อมูล CSV
 CSV_URL = "https://www.allonline.7eleven.co.th/affiliateExport/?exportName=Item_Stock"
+
+# Dictionary สำหรับเก็บข้อมูล SKU ที่ผู้ใช้ต้องการ monitor
+monitoring_skus = {}
 
 # ฟังก์ชันเพื่อดึงข้อมูลสินค้าจาก CSV
 def get_product_info(product_codes):
@@ -50,6 +55,34 @@ def get_product_info(product_codes):
         print(f"Error occurred while fetching CSV data: {e}")
     return None
 
+# ฟังก์ชันเพื่อเก็บ SKU ที่ต้องการ monitor
+def add_sku_to_monitor(user_id, sku):
+    if sku in monitoring_skus:
+        monitoring_skus[sku].append(user_id)
+    else:
+        monitoring_skus[sku] = [user_id]
+    print(f"Monitoring SKU {sku} for user {user_id}")
+
+# ฟังก์ชันตรวจสอบสต็อกสินค้า
+def monitor_stock():
+    while True:
+        for sku, user_ids in monitoring_skus.items():
+            product_info = get_product_info([sku])
+            if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
+                item_stock = int(product_info[0]["itemStock"])
+                if item_stock < 10:  # กำหนดเงื่อนไขจำนวนสต็อกที่ต้องการแจ้งเตือน
+                    for user_id in user_ids:
+                        try:
+                            line_bot_api.push_message(
+                                user_id,
+                                TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
+                            )
+                            print(f"Notification sent to user {user_id} for SKU {sku}")
+                        except LineBotApiError as e:
+                            print(f"Error occurred while sending notification to user {user_id}:", e)
+                            traceback.print_exc()
+        sleep(600)  # ตรวจสอบทุกๆ 10 นาที
+
 # Endpoint ที่รับ Webhook จาก LINE
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -73,57 +106,59 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
-        print("Received message event")
-        # แยก SKU หลายตัวออกจากข้อความที่ผู้ใช้ส่งมา โดยใช้เครื่องหมายจุลภาคเป็นตัวแบ่ง
-        product_codes = event.message.text.split(',')
+        user_message = event.message.text.strip().lower()
+        user_id = event.source.user_id
 
-        # ตรวจสอบว่าได้ตอบกลับไปแล้วหรือไม่
-        if hasattr(event, 'replied') and event.replied:
-            print("Message already replied. Skipping duplicate handling.")
-            return
+        # ตรวจสอบว่าเป็นคำสั่ง monitor หรือไม่
+        if user_message.startswith("monitor"):
+            sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
+            add_sku_to_monitor(user_id, sku)
 
-        # ตอบกลับทันทีเพื่อไม่ให้ reply_token หมดอายุ
-        reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
-        try:
+            # ตอบกลับผู้ใช้เพื่อยืนยันการ monitor
+            reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(text=reply_text)
             )
-            print("Reply message sent immediately to avoid token expiry")
-            event.replied = True  # ระบุว่าฟังก์ชันได้ตอบกลับแล้ว
-        except LineBotApiError as e:
-            # จับข้อยกเว้นเมื่อการใช้ reply_token ไม่สำเร็จ
-            print("Error occurred while replying with reply_token:", e)
-            traceback.print_exc()
-            return
-
-        # หลังจากนั้นค่อยประมวลผลข้อมูลสินค้า
-        product_info_list = get_product_info(product_codes)
-        if product_info_list:
-            follow_up_text = ""
-            for product_info in product_info_list:
-                follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
-                                   f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
-                                   f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
         else:
-            follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
+            # กรณีข้อความอื่นๆ (เช่นการค้นหาสินค้า)
+            handle_stock_inquiry(event)
 
-        # ส่งข้อความติดตามด้วย push_message
-        try:
-            line_bot_api.push_message(
-                event.source.user_id,
-                TextSendMessage(text=follow_up_text.strip())
-            )
-            print("Follow-up message sent")
-        except LineBotApiError as e:
-            # จับข้อยกเว้นเมื่อการใช้ push_message ไม่สำเร็จ
-            print("Error occurred while sending push_message:", e)
-            traceback.print_exc()
-
+    except LineBotApiError as e:
+        print("Error occurred while handling message:", e)
+        traceback.print_exc()
     except Exception as e:
-        # แสดงรายละเอียดข้อผิดพลาดที่เกิดขึ้น
         print("An unexpected error occurred in handle_message:", e)
         traceback.print_exc()
+
+# ฟังก์ชันแยกสำหรับการค้นหาสินค้า (เดิม)
+def handle_stock_inquiry(event):
+    product_codes = event.message.text.split(',')
+    reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
+    
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=reply_text)
+    )
+
+    product_info_list = get_product_info(product_codes)
+    if product_info_list:
+        follow_up_text = ""
+        for product_info in product_info_list:
+            follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
+                               f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
+                               f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
+    else:
+        follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
+
+    line_bot_api.push_message(
+        event.source.user_id,
+        TextSendMessage(text=follow_up_text.strip())
+    )
+
+# เริ่มต้น Thread สำหรับ monitor stock
+monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
+monitor_thread.start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
