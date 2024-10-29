@@ -77,6 +77,11 @@ def handle_message(event):
         # แยก SKU หลายตัวออกจากข้อความที่ผู้ใช้ส่งมา โดยใช้เครื่องหมายจุลภาคเป็นตัวแบ่ง
         product_codes = event.message.text.split(',')
 
+        # ตรวจสอบว่าได้ตอบกลับไปแล้วหรือไม่
+        if hasattr(event, 'replied') and event.replied:
+            print("Message already replied. Skipping duplicate handling.")
+            return
+
         # ตอบกลับทันทีเพื่อไม่ให้ reply_token หมดอายุ
         reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
         try:
@@ -85,6 +90,7 @@ def handle_message(event):
                 TextSendMessage(text=reply_text)
             )
             print("Reply message sent immediately to avoid token expiry")
+            event.replied = True  # ระบุว่าฟังก์ชันได้ตอบกลับแล้ว
         except LineBotApiError as e:
             # จับข้อยกเว้นเมื่อการใช้ reply_token ไม่สำเร็จ
             print("Error occurred while replying with reply_token:", e)
