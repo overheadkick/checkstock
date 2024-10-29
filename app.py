@@ -60,11 +60,27 @@ def get_product_info(product_codes):
 
 # ฟังก์ชันเพื่อเก็บ SKU ที่ต้องการ monitor
 def add_sku_to_monitor(user_id, sku):
-    if sku in monitoring_skus:
-        monitoring_skus[sku].append(user_id)
-    else:
-        monitoring_skus[sku] = [user_id]
-    print(f"Monitoring SKU {sku} for user {user_id}")
+    product_info = get_product_info([sku])
+    if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
+        item_stock = int(product_info[0]["itemStock"])
+        if item_stock == 0:
+            # หากสินค้าหมดสต็อกแล้ว แจ้งให้ผู้ใช้ทราบว่าไม่สามารถ monitor ได้
+            reply_text = f"สินค้ารหัส {sku} หมดสต็อกแล้ว ไม่สามารถ monitor ได้ในขณะนี้"
+            try:
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text=reply_text)
+                )
+            except LineBotApiError as e:
+                print("Error occurred while sending message:", e)
+                traceback.print_exc()
+            return
+
+        if sku in monitoring_skus:
+            monitoring_skus[sku].append(user_id)
+        else:
+            monitoring_skus[sku] = [user_id]
+        print(f"Monitoring SKU {sku} for user {user_id}")
 
 # ฟังก์ชันเพื่อยกเลิกการ monitor SKU
 def remove_sku_from_monitor(user_id, sku):
