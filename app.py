@@ -167,8 +167,22 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
+        # ตรวจสอบว่าข้อความนี้เป็นข้อความที่ถูก redelivered หรือไม่
+        if hasattr(event, 'delivery_context') and event.delivery_context.isRedelivery:
+            print("Redelivered message detected. Skipping processing.")
+            return
+
+        message_id = event.message.id
         user_message = event.message.text.strip().lower()
         user_id = event.source.user_id
+
+        # ตรวจสอบว่าข้อความนี้เคยถูกประมวลผลแล้วหรือไม่
+        if message_id in processed_messages:
+            print("Duplicate message detected. Skipping processing.")
+            return
+
+        # เพิ่ม message_id ลงใน processed_messages เพื่อป้องกันการประมวลผลซ้ำ
+        processed_messages.add(message_id)
 
         if user_message.startswith("monitor"):
             sku = user_message.split(" ")[1]  # ดึง SKU จากข้อความ
