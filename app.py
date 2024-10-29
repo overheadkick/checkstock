@@ -141,9 +141,11 @@ def handle_message(event):
 
 # ฟังก์ชันแยกสำหรับการค้นหาสินค้า (เดิม)
 def handle_stock_inquiry(event):
+    user_id = event.source.user_id
     product_codes = event.message.text.split(',')
     reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
-    
+
+    # ส่งข้อความให้ผู้ใช้เพื่อแจ้งว่ากำลังดำเนินการ
     try:
         line_bot_api.reply_message(
             event.reply_token,
@@ -153,10 +155,11 @@ def handle_stock_inquiry(event):
         # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
         print("Reply token expired, using push_message instead.")
         line_bot_api.push_message(
-            event.source.user_id,
+            user_id,
             TextSendMessage(text=reply_text)
         )
 
+    # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
     product_info_list = get_product_info(product_codes)
     if product_info_list:
         follow_up_text = ""
@@ -164,13 +167,16 @@ def handle_stock_inquiry(event):
             follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
                                f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
                                f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=follow_up_text.strip())
+        )
     else:
         follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
-
-    line_bot_api.push_message(
-        event.source.user_id,
-        TextSendMessage(text=follow_up_text.strip())
-    )
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=follow_up_text)
+        )
 
 # เริ่มต้น Thread สำหรับ monitor stock
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
