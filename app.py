@@ -167,11 +167,6 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
-        # ตรวจสอบว่าข้อความนี้เป็นข้อความที่ถูก redelivered หรือไม่
-        if hasattr(event, 'delivery_context') and event.delivery_context.isRedelivery:
-            print("Redelivered message detected. Skipping processing.")
-            return
-
         message_id = event.message.id
         user_message = event.message.text.strip().lower()
         user_id = event.source.user_id
