@@ -111,17 +111,37 @@ def monitor_stock():
             product_info = get_product_info([sku])
             if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
                 item_stock = int(product_info[0]["itemStock"])
-                if item_stock < 10:  # กำหนดเงื่อนไขจำนวนสต็อกที่ต้องการแจ้งเตือน
+                
+                # ตรวจสอบจำนวนสต็อกและส่งการแจ้งเตือน
+                if item_stock == 0:
+                    # สินค้าหมด แจ้งเตือนผู้ใช้
+                    for user_id in user_ids:
+                        try:
+                            line_bot_api.push_message(
+                                user_id,
+                                TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} หมดสต็อกแล้ว!")
+                            )
+                            print(f"Notification sent to user {user_id} for SKU {sku} (out of stock)")
+                        except LineBotApiError as e:
+                            print(f"Error occurred while sending notification to user {user_id}:", e)
+                            traceback.print_exc()
+                    
+                    # ลบ SKU ออกจากรายการ monitor เนื่องจากสินค้าหมดแล้ว
+                    del monitoring_skus[sku]
+
+                elif item_stock < 10:
+                    # สินค้ากำลังจะหมด แจ้งเตือนผู้ใช้
                     for user_id in user_ids:
                         try:
                             line_bot_api.push_message(
                                 user_id,
                                 TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
                             )
-                            print(f"Notification sent to user {user_id} for SKU {sku}")
+                            print(f"Notification sent to user {user_id} for SKU {sku} (low stock)")
                         except LineBotApiError as e:
                             print(f"Error occurred while sending notification to user {user_id}:", e)
                             traceback.print_exc()
+
         sleep(600)  # ตรวจสอบทุกๆ 10 นาที
 
 # Endpoint ที่รับ Webhook จาก LINE
