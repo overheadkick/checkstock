@@ -56,7 +56,7 @@ def get_product_info(product_codes):
             print(f"Failed to fetch CSV data, status code: {response.status_code}")
     except requests.exceptions.RequestException as e:
         print(f"Error occurred while fetching CSV data: {e}")
-    return None
+    return []
 
 # ฟังก์ชันเพื่อเก็บ SKU ที่ต้องการ monitor
 def add_sku_to_monitor(user_id, skus):
@@ -74,6 +74,9 @@ def add_sku_to_monitor(user_id, skus):
         return
 
     product_info_list = get_product_info(skus)
+    if product_info_list is None:
+        product_info_list = []
+
     for product_info in product_info_list:
         sku = product_info['sku']
         if sku in current_monitored_skus:
@@ -245,9 +248,18 @@ def handle_message(event):
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             remove_sku_from_monitor(user_id, skus)
 
+        elif user_message == "unmonitor all":
+            remove_sku_from_monitor(user_id, ["all"])
+
         else:
-            # กรณีข้อความอื่นๆ (เช่นการค้นหาสินค้า)
-            handle_stock_inquiry(event)
+            # ตรวจสอบข้อความที่ไม่ตรงกับคำสั่งที่กำหนดไว้ และแจ้งเตือนหากไม่พบข้อมูล
+            if user_message.isalnum():
+                handle_stock_inquiry(event)
+            else:
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text="คำสั่งไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง")
+                )
 
     except LineBotApiError as e:
         print("Error occurred while handling message:", e)
