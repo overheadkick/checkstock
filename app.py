@@ -251,15 +251,15 @@ def handle_message(event):
         elif user_message == "unmonitor all":
             remove_sku_from_monitor(user_id, ["all"])
 
+        elif all(sku.isalnum() for sku in user_message.split(",")):
+            # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว เช่น "403336010, 499138010"
+            handle_stock_inquiry(event)
+
         else:
-            # ตรวจสอบข้อความที่ไม่ตรงกับคำสั่งที่กำหนดไว้ และแจ้งเตือนหากไม่พบข้อมูล
-            if user_message.isalnum():
-                handle_stock_inquiry(event)
-            else:
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text="คำสั่งไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง")
-                )
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="คำสั่งไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง")
+            )
 
     except LineBotApiError as e:
         print("Error occurred while handling message:", e)
@@ -272,6 +272,7 @@ def handle_message(event):
 def handle_stock_inquiry(event):
     user_id = event.source.user_id
     product_codes = event.message.text.split(',')
+    product_codes = [code.strip() for code in product_codes]
     reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
 
     # ส่งข้อความให้ผู้ใช้เพื่อแจ้งว่ากำลังดำเนินการ
