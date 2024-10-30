@@ -60,6 +60,18 @@ def get_product_info(product_codes):
 
 # ฟังก์ชันเพื่อเก็บ SKU ที่ต้องการ monitor
 def add_sku_to_monitor(user_id, skus):
+    if len([sku for sku, users in monitoring_skus.items() if user_id in users]) + len(skus) > 5:
+        reply_text = "คุณสามารถ monitor สินค้าได้สูงสุด 5 รายการเท่านั้น กรุณายกเลิกการ monitor สินค้าบางรายการก่อน (พิมพ์ unmonitor all เพื่อยกเลิกทั้งหมด หรือ พิมพ์ unmonitor <sku> ที่ต้องการยกเลิก"
+        try:
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=reply_text)
+            )
+        except LineBotApiError as e:
+            print("Error occurred while sending message:", e)
+            traceback.print_exc()
+        return
+
     product_info_list = get_product_info(skus)
     for product_info in product_info_list:
         sku = product_info['sku']
@@ -95,7 +107,13 @@ def add_sku_to_monitor(user_id, skus):
 
 # ฟังก์ชันเพื่อยกเลิกการ monitor SKU
 def remove_sku_from_monitor(user_id, skus):
-    for sku in skus:
+    if "all" in skus:
+        # ยกเลิกการ monitor ทั้งหมดสำหรับผู้ใช้
+        skus_to_remove = [sku for sku, users in monitoring_skus.items() if user_id in users]
+    else:
+        skus_to_remove = skus
+
+    for sku in skus_to_remove:
         if sku in monitoring_skus:
             if user_id in monitoring_skus[sku]:
                 monitoring_skus[sku].remove(user_id)
