@@ -251,7 +251,7 @@ def handle_message(event):
         elif user_message == "unmonitor all":
             remove_sku_from_monitor(user_id, ["all"])
 
-        elif all(sku.isalnum() for sku in user_message.split(",")):
+        elif all(sku.strip().isalnum() for sku in user_message.split(",")):
             # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว เช่น "403336010, 499138010"
             handle_stock_inquiry(event)
 
