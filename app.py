@@ -223,7 +223,7 @@ def handle_message(event):
         processed_messages.add(message_id)
 
         if user_message.startswith("monitor"):
-            skus = user_message.split(" ", 1)[1].replace(", ", ",").replace(" ,", ",").split(",")  # ดึง SKU หลายตัวจากข้อความ
+            skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
             reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {', '.join(skus)} กรุณารอสักครู่..."
@@ -244,15 +244,15 @@ def handle_message(event):
             add_sku_to_monitor(user_id, skus)
 
         elif user_message.startswith("unmonitor"):
-            skus = user_message.split(" ", 1)[1].replace(", ", ",").replace(" ,", ",").split(",")  # ดึง SKU หลายตัวจากข้อความ
+            skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             remove_sku_from_monitor(user_id, skus)
 
         elif user_message == "unmonitor all":
             remove_sku_from_monitor(user_id, ["all"])
 
-        elif all(sku.strip().isalnum() for sku in user_message.split(",")):
-            # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว เช่น "403336010, 499138010"
+        elif all(sku.strip().isalnum() for sku in user_message.split("\n")):
+            # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว โดยแยกตามบรรทัดใหม่
             handle_stock_inquiry(event)
 
         else:
@@ -271,7 +271,7 @@ def handle_message(event):
 # ฟังก์ชันแยกสำหรับการค้นหาสินค้า (เดิม)
 def handle_stock_inquiry(event):
     user_id = event.source.user_id
-    product_codes = event.message.text.replace(", ", ",").replace(" ,", ",").split(',')
+    product_codes = event.message.text.split("\n")
     product_codes = [code.strip() for code in product_codes]
     reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
 
