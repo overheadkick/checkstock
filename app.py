@@ -121,8 +121,7 @@ def add_sku_to_monitor(user_id, skus):
                 print("Error occurred while sending follow-up message:", e)
                 traceback.print_exc()
         else:
-            # หากไม่พบข้อมูลสินค้า ตอบกลับผู้ใช้
-            reply_text = f"ไม่พบข้อมูลสินค้ารหัส {sku} ในระบบ"
+            reply_text = f"ไม่พบข้อมูลสำหรับสินค้ารหัส {sku}"
             try:
                 line_bot_api.push_message(
                     user_id,
@@ -291,7 +290,7 @@ def handle_message(event):
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
-                print("Error occurred while sending message:", e)
+                print("Error occurred while sending confirmation message:", e)
                 traceback.print_exc()
 
             # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
@@ -348,7 +347,7 @@ def handle_stock_inquiry(event):
             TextSendMessage(text=reply_text)
         )
     except LineBotApiError as e:
-        print("Error occurred while sending message:", e)
+        print("Error occurred while sending processing message:", e)
         traceback.print_exc()
 
     # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
