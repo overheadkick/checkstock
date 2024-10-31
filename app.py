@@ -79,18 +79,6 @@ def add_sku_to_monitor(user_id, skus, reply_token):
 
     for product_info in product_info_list:
         sku = product_info['sku']
-        if product_info['name'] == "ไม่พบข้อมูล":
-            reply_text = f"ไม่พบข้อมูลสินค้ารหัส {sku} ไม่สามารถ monitor ได้"
-            try:
-                line_bot_api.reply_message(
-                    reply_token,
-                    TextSendMessage(text=reply_text)
-                )
-            except LineBotApiError as e:
-                print("Error occurred while sending message:", e)
-                traceback.print_exc()
-            continue
-
         if sku in current_monitored_skus:
             reply_text = f"คุณกำลัง monitor สินค้ารหัส {sku} อยู่แล้ว"
             try:
@@ -131,6 +119,17 @@ def add_sku_to_monitor(user_id, skus, reply_token):
                 )
             except LineBotApiError as e:
                 print("Error occurred while sending follow-up message:", e)
+                traceback.print_exc()
+        else:
+            # ตอบกลับเมื่อไม่พบข้อมูลสินค้าที่ต้องการ monitor
+            reply_text = f"ไม่พบข้อมูลสินค้ารหัส {sku} ไม่สามารถ monitor ได้"
+            try:
+                line_bot_api.reply_message(
+                    reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+            except LineBotApiError as e:
+                print("Error occurred while sending message:", e)
                 traceback.print_exc()
 
 # ฟังก์ชันเพื่อยกเลิกการ monitor SKU
