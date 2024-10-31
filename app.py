@@ -59,13 +59,13 @@ def get_product_info(product_codes):
     return []
 
 # ฟังก์ชันเพื่อเก็บ SKU ที่ต้องการ monitor
-def add_sku_to_monitor(user_id, skus):
+def add_sku_to_monitor(user_id, skus, reply_token):
     current_monitored_skus = [sku for sku, users in monitoring_skus.items() if user_id in users]
     if len(current_monitored_skus) + len(skus) > 5:
         reply_text = "คุณสามารถ monitor สินค้าได้สูงสุด 5 รายการเท่านั้น กรุณายกเลิกการ monitor สินค้าบางรายการก่อน"
         try:
             line_bot_api.reply_message(
-                user_id,
+                reply_token,
                 TextSendMessage(text=reply_text)
             )
         except LineBotApiError as e:
@@ -83,7 +83,7 @@ def add_sku_to_monitor(user_id, skus):
             reply_text = f"คุณกำลัง monitor สินค้ารหัส {sku} อยู่แล้ว"
             try:
                 line_bot_api.reply_message(
-                    user_id,
+                    reply_token,
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
@@ -98,7 +98,7 @@ def add_sku_to_monitor(user_id, skus):
                 reply_text = f"สินค้ารหัส {sku} หมดสต็อกแล้ว ไม่สามารถ monitor ได้ในขณะนี้"
                 try:
                     line_bot_api.reply_message(
-                        user_id,
+                        reply_token,
                         TextSendMessage(text=reply_text)
                     )
                 except LineBotApiError as e:
@@ -114,7 +114,7 @@ def add_sku_to_monitor(user_id, skus):
             reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
             try:
                 line_bot_api.reply_message(
-                    user_id,
+                    reply_token,
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
@@ -122,7 +122,7 @@ def add_sku_to_monitor(user_id, skus):
                 traceback.print_exc()
 
 # ฟังก์ชันเพื่อยกเลิกการ monitor SKU
-def remove_sku_from_monitor(user_id, skus):
+def remove_sku_from_monitor(user_id, skus, reply_token):
     if "all" in skus:
         # ยกเลิกการ monitor ทั้งหมดสำหรับผู้ใช้
         skus_to_remove = [sku for sku, users in monitoring_skus.items() if user_id in users]
@@ -139,7 +139,7 @@ def remove_sku_from_monitor(user_id, skus):
                 reply_text = f"ระบบได้ยกเลิกการ monitor สินค้ารหัส {sku} เรียบร้อยแล้ว"
                 try:
                     line_bot_api.reply_message(
-                        user_id,
+                        reply_token,
                         TextSendMessage(text=reply_text)
                     )
                 except LineBotApiError as e:
@@ -160,7 +160,7 @@ def monitor_stock():
                     # สินค้าหมด แจ้งเตือนผู้ใช้
                     for user_id in user_ids:
                         try:
-                            line_bot_api.reply_message(
+                            line_bot_api.push_message(
                                 user_id,
                                 TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} หมดสต็อกแล้ว!")
                             )
@@ -176,7 +176,7 @@ def monitor_stock():
                     # สินค้ากำลังจะหมด แจ้งเตือนผู้ใช้
                     for user_id in user_ids:
                         try:
-                            line_bot_api.reply_message(
+                            line_bot_api.push_message(
                                 user_id,
                                 TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
                             )
@@ -288,15 +288,15 @@ def handle_message(event):
                 )
 
             # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
-            add_sku_to_monitor(user_id, skus)
+            add_sku_to_monitor(user_id, skus, event.reply_token)
 
         elif user_message.startswith("unmonitor"):
             skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
-            remove_sku_from_monitor(user_id, skus)
+            remove_sku_from_monitor(user_id, skus, event.reply_token)
 
         elif user_message == "unmonitor all":
-            remove_sku_from_monitor(user_id, ["all"])
+            remove_sku_from_monitor(user_id, ["all"], event.reply_token)
 
         elif user_message == "list monitor":
             # แสดงรายการ SKU ที่ผู้ใช้กำลัง monitor อยู่
@@ -356,14 +356,14 @@ def handle_stock_inquiry(event):
             follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
                                f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
                                f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
-        line_bot_api.push_message(
-            user_id,
+        line_bot_api.reply_message(
+            event.reply_token,
             TextSendMessage(text=follow_up_text.strip())
         )
     else:
         follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
-        line_bot_api.push_message(
-            user_id,
+        line_bot_api.reply_message(
+            event.reply_token,
             TextSendMessage(text=follow_up_text)
         )
 
