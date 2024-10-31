@@ -79,11 +79,23 @@ def add_sku_to_monitor(user_id, skus, reply_token):
 
     for product_info in product_info_list:
         sku = product_info['sku']
+        if product_info['name'] == "ไม่พบข้อมูล":
+            reply_text = f"ไม่พบข้อมูลสินค้ารหัส {sku} ไม่สามารถ monitor ได้"
+            try:
+                line_bot_api.reply_message(
+                    reply_token,
+                    TextSendMessage(text=reply_text)
+                )
+            except LineBotApiError as e:
+                print("Error occurred while sending message:", e)
+                traceback.print_exc()
+            continue
+
         if sku in current_monitored_skus:
             reply_text = f"คุณกำลัง monitor สินค้ารหัส {sku} อยู่แล้ว"
             try:
-                line_bot_api.push_message(
-                    user_id,
+                line_bot_api.reply_message(
+                    reply_token,
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
@@ -97,8 +109,8 @@ def add_sku_to_monitor(user_id, skus, reply_token):
                 # หากสินค้าหมดสต็อกแล้ว แจ้งให้ผู้ใช้ทราบว่าไม่สามารถ monitor ได้
                 reply_text = f"สินค้ารหัส {sku} หมดสต็อกแล้ว ไม่สามารถ monitor ได้ในขณะนี้"
                 try:
-                    line_bot_api.push_message(
-                        user_id,
+                    line_bot_api.reply_message(
+                        reply_token,
                         TextSendMessage(text=reply_text)
                     )
                 except LineBotApiError as e:
@@ -113,18 +125,8 @@ def add_sku_to_monitor(user_id, skus, reply_token):
             print(f"Monitoring SKU {sku} for user {user_id}")
             reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
             try:
-                line_bot_api.push_message(
-                    user_id,
-                    TextSendMessage(text=reply_text)
-                )
-            except LineBotApiError as e:
-                print("Error occurred while sending follow-up message:", e)
-                traceback.print_exc()
-        else:
-            reply_text = f"ไม่พบข้อมูลสินค้ารหัส {sku}"
-            try:
-                line_bot_api.push_message(
-                    user_id,
+                line_bot_api.reply_message(
+                    reply_token,
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
@@ -148,8 +150,8 @@ def remove_sku_from_monitor(user_id, skus, reply_token):
                 print(f"Stopped monitoring SKU {sku} for user {user_id}")
                 reply_text = f"ระบบได้ยกเลิกการ monitor สินค้ารหัส {sku} เรียบร้อยแล้ว"
                 try:
-                    line_bot_api.push_message(
-                        user_id,
+                    line_bot_api.reply_message(
+                        reply_token,
                         TextSendMessage(text=reply_text)
                     )
                 except LineBotApiError as e:
@@ -358,7 +360,7 @@ def handle_stock_inquiry(event):
             TextSendMessage(text=reply_text)
         )
 
-    # ดึงข้อมูลสินค้าและส่งข้อความติดตามผู้ใช้
+    # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
     product_info_list = get_product_info(product_codes)
     if product_info_list:
         follow_up_text = ""
@@ -366,14 +368,14 @@ def handle_stock_inquiry(event):
             follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
                                f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
                                f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
-        line_bot_api.push_message(
-            user_id,
+        line_bot_api.reply_message(
+            event.reply_token,
             TextSendMessage(text=follow_up_text.strip())
         )
     else:
         follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
-        line_bot_api.push_message(
-            user_id,
+        line_bot_api.reply_message(
+            event.reply_token,
             TextSendMessage(text=follow_up_text)
         )
 
