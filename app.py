@@ -247,14 +247,16 @@ def handle_message(event):
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     monitor\n"
                 "     123456010\n"
-                "     654321009\n\n"
+                "     654321009\n"
+                "     หรือ monitor 123456010, 654321009\n\n"
                 "3. ยกเลิกการ Monitor สินค้า\n"
                 "   - คำสั่ง: unmonitor <SKU>\n"
                 "   - คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ที่ระบุ\n"
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     unmonitor\n"
                 "     123456010\n"
-                "     654321009\n\n"
+                "     654321009\n"
+                "     หรือ unmonitor 123456010, 654321009\n\n"
                 "4. ยกเลิกการ Monitor ทั้งหมด\n"
                 "   - คำสั่ง: unmonitor all\n"
                 "   - คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ทั้งหมดที่กำลัง monitor อยู่ในขณะนั้น\n"
@@ -280,7 +282,13 @@ def handle_message(event):
             )
 
         elif user_message.startswith("monitor"):
-            skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
+            skus = user_message.replace('monitor', '').replace(',', '\n').split()  # แยกคำสั่งและ SKU ที่ตามมาโดยใช้ , หรือ บรรทัดใหม่
+            if not skus:
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text="กรุณาระบุ SKU ที่ต้องการ monitor หลังคำสั่ง monitor")
+                )
+                return
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
             reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {', '.join(skus)} กรุณารอสักครู่..."
@@ -297,7 +305,7 @@ def handle_message(event):
             add_sku_to_monitor(user_id, skus)
 
         elif user_message.startswith("unmonitor"):
-            skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
+            skus = user_message.replace('unmonitor', '').replace(',', '\n').split()  # แยกคำสั่งและ SKU ที่ตามมาโดยใช้ , หรือ บรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             remove_sku_from_monitor(user_id, skus)
 
