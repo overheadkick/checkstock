@@ -64,7 +64,7 @@ def add_sku_to_monitor(user_id, skus):
     if len(current_monitored_skus) + len(skus) > 5:
         reply_text = "คุณสามารถ monitor สินค้าได้สูงสุด 5 รายการเท่านั้น กรุณายกเลิกการ monitor สินค้าบางรายการก่อน"
         try:
-            line_bot_api.push_message(
+            line_bot_api.reply_message(
                 user_id,
                 TextSendMessage(text=reply_text)
             )
@@ -82,7 +82,7 @@ def add_sku_to_monitor(user_id, skus):
         if sku in current_monitored_skus:
             reply_text = f"คุณกำลัง monitor สินค้ารหัส {sku} อยู่แล้ว"
             try:
-                line_bot_api.push_message(
+                line_bot_api.reply_message(
                     user_id,
                     TextSendMessage(text=reply_text)
                 )
@@ -97,7 +97,7 @@ def add_sku_to_monitor(user_id, skus):
                 # หากสินค้าหมดสต็อกแล้ว แจ้งให้ผู้ใช้ทราบว่าไม่สามารถ monitor ได้
                 reply_text = f"สินค้ารหัส {sku} หมดสต็อกแล้ว ไม่สามารถ monitor ได้ในขณะนี้"
                 try:
-                    line_bot_api.push_message(
+                    line_bot_api.reply_message(
                         user_id,
                         TextSendMessage(text=reply_text)
                     )
@@ -113,7 +113,7 @@ def add_sku_to_monitor(user_id, skus):
             print(f"Monitoring SKU {sku} for user {user_id}")
             reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
             try:
-                line_bot_api.push_message(
+                line_bot_api.reply_message(
                     user_id,
                     TextSendMessage(text=reply_text)
                 )
@@ -138,7 +138,7 @@ def remove_sku_from_monitor(user_id, skus):
                 print(f"Stopped monitoring SKU {sku} for user {user_id}")
                 reply_text = f"ระบบได้ยกเลิกการ monitor สินค้ารหัส {sku} เรียบร้อยแล้ว"
                 try:
-                    line_bot_api.push_message(
+                    line_bot_api.reply_message(
                         user_id,
                         TextSendMessage(text=reply_text)
                     )
@@ -160,7 +160,7 @@ def monitor_stock():
                     # สินค้าหมด แจ้งเตือนผู้ใช้
                     for user_id in user_ids:
                         try:
-                            line_bot_api.push_message(
+                            line_bot_api.reply_message(
                                 user_id,
                                 TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} หมดสต็อกแล้ว!")
                             )
@@ -176,7 +176,7 @@ def monitor_stock():
                     # สินค้ากำลังจะหมด แจ้งเตือนผู้ใช้
                     for user_id in user_ids:
                         try:
-                            line_bot_api.push_message(
+                            line_bot_api.reply_message(
                                 user_id,
                                 TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
                             )
