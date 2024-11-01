@@ -226,8 +226,7 @@ def handle_message(event):
             skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-            reply_text = "กำลังตรวจสอบข้อมูลสินค้ารหัส {}
-กรุณารอสักครู่...".format('\n'.join(skus))
+            reply_text = "กำลังตรวจสอบข้อมูลสินค้ารหัส {} กรุณารอสักครู่...".format("\n".join(skus))
             try:
                 line_bot_api.push_message(
                     user_id,
@@ -256,8 +255,7 @@ def handle_message(event):
             # แสดงรายการ SKU ที่ผู้ใช้กำลัง monitor อยู่
             monitored_skus = [sku for sku, users in monitoring_skus.items() if user_id in users]
             if monitored_skus:
-                reply_text = "รายการ SKU ที่คุณกำลัง monitor อยู่:
-" + "\n".join(monitored_skus)
+                reply_text = "รายการ SKU ที่คุณกำลัง monitor อยู่:\n" + "\n".join(monitored_skus)
             else:
                 reply_text = "คุณไม่ได้ monitor SKU ใดอยู่ในขณะนี้"
             line_bot_api.push_message(
@@ -268,6 +266,49 @@ def handle_message(event):
         elif all(sku.strip().isalnum() for sku in user_message.split("\n")):
             # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว โดยแยกตามบรรทัดใหม่
             handle_stock_inquiry(event)
+
+        elif user_message == "help":
+            # แสดงคู่มือการใช้งาน
+            reply_text = (
+                "**คู่มือการใช้งานคำสั่ง LINE Bot สำหรับตรวจสอบและ monitor สินค้า**\n\n"
+                "**1. ตรวจสอบสต็อกสินค้า**\n"
+                "คำสั่ง: ระบุ SKU โดยแยกแต่ละ SKU ด้วยการขึ้นบรรทัดใหม่\n"
+                "คำอธิบาย: ใช้เพื่อเช็คข้อมูลสต็อกสินค้าที่ระบุ โดย Bot จะส่งข้อมูลชื่อสินค้าและจำนวนสต็อกให้\n"
+                "ตัวอย่างการใช้งาน:\n"
+                "123456010\n654321009\n\n"
+                "**2. Monitor สินค้า**\n"
+                "คำสั่ง: `monitor <SKU>`\n"
+                "คำอธิบาย: ใช้เพื่อเริ่มต้น monitor SKU ที่ต้องการ โดยเมื่อสินค้าใกล้จะหมดหรือหมดแล้ว Bot จะทำการแจ้งเตือนผู้ใช้\n"
+                "ตัวอย่างการใช้งาน:\n"
+                "monitor\n123456010\n654321009\n\n"
+                "**3. ยกเลิกการ Monitor สินค้า**\n"
+                "คำสั่ง: `unmonitor <SKU>`\n"
+                "คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ที่ระบุ\n"
+                "ตัวอย่างการใช้งาน:\n"
+                "unmonitor\n123456010\n654321009\n\n"
+                "**4. ยกเลิกการ Monitor ทั้งหมด**\n"
+                "คำสั่ง: `unmonitor all`\n"
+                "คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ทั้งหมดที่กำลัง monitor อยู่ในขณะนั้น\n"
+                "ตัวอย่างการใช้งาน:\n"
+                "unmonitor all\n\n"
+                "**5. ตรวจสอบรายการที่กำลัง Monitor**\n"
+                "คำสั่ง: `list monitor`\n"
+                "คำอธิบาย: ใช้เพื่อตรวจสอบรายการ SKU ที่ผู้ใช้กำลัง monitor อยู่ในขณะนั้น\n"
+                "ตัวอย่างการใช้งาน:\n"
+                "list monitor\n\n"
+                "**6. เรียกดูคู่มือการใช้งาน**\n"
+                "คำสั่ง: `help`\n"
+                "คำอธิบาย: ใช้เพื่อเรียกดูคู่มือการใช้งานคำสั่งทั้งหมดของ LINE Bot\n"
+                "ตัวอย่างการใช้งาน:\n"
+                "help\n\n"
+                "**หมายเหตุ:**\n"
+                "- สามารถ monitor SKU ได้สูงสุด 5 รายการ หากต้องการ monitor รายการใหม่ ต้องยกเลิกบางรายการก่อน\n"
+                "- หากมี SKU ซ้ำในคำสั่ง monitor จะนับเพียงครั้งเดียว"
+            )
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=reply_text)
+            )
 
         else:
             line_bot_api.push_message(
