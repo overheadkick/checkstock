@@ -226,7 +226,7 @@ def handle_message(event):
             skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-            reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {', '.join(skus)} กรุณารอสักครู่..."
+            reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {'\n'.join(skus)} กรุณารอสักครู่..."
             try:
                 line_bot_api.push_message(
                     user_id,
@@ -270,7 +270,7 @@ def handle_message(event):
         else:
             line_bot_api.push_message(
                 user_id,
-                TextSendMessage(text="คำสั่งไม่ถูกต้อง กรุณาตรวจสอบว่าเป็นตัวเลข 9 หลักหรือไม่มีตัวอักษรผสม\nหากต้องการตรวจสอบหลายรายการ กรุณาระบุ SKU โดยใช้เครื่องหมาย ',' หรือขึ้นบรรทัดใหม่เพื่อแยกแต่ละ SKU")
+                TextSendMessage(text="คำสั่งไม่ถูกต้อง กรุณาตรวจสอบว่าเป็นตัวเลข 9 หลักหรือไม่มีตัวอักษรผสม\nหากต้องการตรวจสอบหลายรายการ กรุณาระบุ SKU โดยขึ้นบรรทัดใหม่เพื่อแยกแต่ละ SKU")
             )
 
     except LineBotApiError as e:
