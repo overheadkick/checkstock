@@ -226,7 +226,8 @@ def handle_message(event):
             skus = user_message.split("\n")[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามบรรทัดใหม่
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
             # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-            reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {'\n'.join(skus)} กรุณารอสักครู่..."
+            reply_text = "กำลังตรวจสอบข้อมูลสินค้ารหัส {}
+กรุณารอสักครู่...".format('\n'.join(skus))
             try:
                 line_bot_api.push_message(
                     user_id,
@@ -255,7 +256,8 @@ def handle_message(event):
             # แสดงรายการ SKU ที่ผู้ใช้กำลัง monitor อยู่
             monitored_skus = [sku for sku, users in monitoring_skus.items() if user_id in users]
             if monitored_skus:
-                reply_text = "รายการ SKU ที่คุณกำลัง monitor อยู่:\n" + "\n".join(monitored_skus)
+                reply_text = "รายการ SKU ที่คุณกำลัง monitor อยู่:
+" + "\n".join(monitored_skus)
             else:
                 reply_text = "คุณไม่ได้ monitor SKU ใดอยู่ในขณะนี้"
             line_bot_api.push_message(
