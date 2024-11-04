@@ -314,9 +314,4 @@ def handle_message(event):
                 "- สามารถ monitor SKU ได้สูงสุด 5 รายการ หากต้องการ monitor รายการใหม่ ต้องยกเลิกบางรายการก่อน\n"
                 "- หากมี SKU ซ้ำในคำสั่ง monitor จะนับเพียงครั้งเดียว"
             )
-            line_bot_api.push_message(
-                user_id,
-                TextSendMessage(text=reply_text)
-            )
-
-        elif all(sku.strip
+           
