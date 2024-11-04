@@ -191,8 +191,8 @@ def monitor_stock():
 def keep_server_awake():
     while True:
         try:
-            # ส่ง request ไปยังตัวเองเพื่อให้ server ตื่นอยู่ (แก้พอร์ตเป็น 10000)
-            response = requests.get("http://localhost:10000/")
+            # ส่ง request ไปยังตัวเองเพื่อให้ server ตื่นอยู่
+            response = requests.get("http://127.0.0.1:10000/")
             print(f"Keep alive request sent, status code: {response.status_code}")
         except requests.exceptions.RequestException as e:
             print(f"Error during keep alive request: {e}")
@@ -237,30 +237,23 @@ def handle_message(event):
         if user_message.startswith("monitor"):
             skus = user_message.split()[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามช่องว่าง
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
-            # ตรวจสอบว่า SKU ทั้งหมดเป็นตัวเลข 9 หลักหรือไม่
-            if all(sku.isdigit() and len(sku) == 9 for sku in skus):
-                # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-                reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {' '.join(skus)} กรุณารอสักครู่..."
-                try:
-                    line_bot_api.push_message(
-                        user_id,
-                        TextSendMessage(text=reply_text)
-                    )
-                except LineBotApiError as e:
-                    # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
-                    print("Reply token expired, using push_message instead.")
-                    line_bot_api.push_message(
-                        user_id,
-                        TextSendMessage(text=reply_text)
-                    )
-
-                # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
-                add_sku_to_monitor(user_id, skus)
-            else:
+            # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
+            reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {' '.join(skus)} กรุณารอสักครู่..."
+            try:
                 line_bot_api.push_message(
                     user_id,
-                    TextSendMessage(text="คำสั่งไม่ถูกต้อง กรุณาตรวจสอบว่าเป็นตัวเลข 9 หลักหรือไม่มีตัวอักษรผสม\nหากต้องการตรวจสอบหลายรายการ กรุณาระบุ SKU โดยขึ้นบรรทัดใหม่เพื่อแยกแต่ละ SKU")
+                    TextSendMessage(text=reply_text)
                 )
+            except LineBotApiError as e:
+                # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
+                print("Reply token expired, using push_message instead.")
+                line_bot_api.push_message(
+                    user_id,
+                    TextSendMessage(text=reply_text)
+                )
+
+            # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
+            add_sku_to_monitor(user_id, skus)
 
         elif user_message.startswith("unmonitor"):
             skus = user_message.split()[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามช่องว่าง
@@ -325,6 +318,11 @@ def handle_message(event):
                 user_id,
                 TextSendMessage(text=reply_text)
             )
+
+        elif user_message.isdigit() and len(user_message) == 9:
+            # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU 9 หลัก
+            handle_stock_inquiry(event)
+
         else:
             line_bot_api.push_message(
                 user_id,
@@ -338,13 +336,53 @@ def handle_message(event):
         print("An unexpected error occurred in handle_message:", e)
         traceback.print_exc()
 
+# ฟังก์ชันแยกสำหรับการค้นหาสินค้า (เดิม)
+def handle_stock_inquiry(event):
+    user_id = event.source.user_id
+    product_codes = event.message.text.split()
+    product_codes = [code.strip() for code in product_codes]
+    reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
+
+    # ส่งข้อความให้ผู้ใช้เพื่อแจ้งว่ากำลังดำเนินการ
+    try:
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=reply_text)
+        )
+    except LineBotApiError as e:
+        # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
+        print("Reply token expired, using push_message instead.")
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=reply_text)
+        )
+
+    # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
+    product_info_list = get_product_info(product_codes)
+    if product_info_list:
+        follow_up_text = ""
+        for product_info in product_info_list:
+            follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
+                               f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
+                               f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=follow_up_text.strip())
+        )
+    else:
+        follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
+        line_bot_api.push_message(
+            user_id,
+            TextSendMessage(text=follow_up_text)
+        )
+
 # เริ่มต้น Thread สำหรับ monitor stock
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
 monitor_thread.start()
 
-# เริ่มต้น Thread สำหรับ keep server awake
-keep_alive_thread = threading.Thread(target=keep_server_awake, daemon=True)
-keep_alive_thread.start()
+# เริ่มต้น Thread สำหรับ keep_server_awake
+keep_awake_thread = threading.Thread(target=keep_server_awake, daemon=True)
+keep_awake_thread.start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
