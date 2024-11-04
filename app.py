@@ -314,4 +314,31 @@ def handle_message(event):
                 "- สามารถ monitor SKU ได้สูงสุด 5 รายการ หากต้องการ monitor รายการใหม่ ต้องยกเลิกบางรายการก่อน\n"
                 "- หากมี SKU ซ้ำในคำสั่ง monitor จะนับเพียงครั้งเดียว"
             )
-           
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=reply_text)
+            )
+        else:
+            reply_text = "คำสั่งไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง"
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=reply_text)
+            )
+
+    except LineBotApiError as e:
+        print("Error occurred while handling message:", e)
+        traceback.print_exc()
+    except Exception as e:
+        print("An unexpected error occurred in handle_message:", e)
+        traceback.print_exc()
+
+# เริ่มต้น Thread สำหรับ monitor stock
+monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
+monitor_thread.start()
+
+# เริ่มต้น Thread สำหรับ keep server awake
+keep_alive_thread = threading.Thread(target=keep_server_awake, daemon=True)
+keep_alive_thread.start()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
