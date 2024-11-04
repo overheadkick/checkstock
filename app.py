@@ -200,6 +200,10 @@ def keep_server_awake():
         sleep(300)  # ส่งทุกๆ 5 นาที
 
 # Endpoint ที่รับ Webhook จาก LINE
+@app.route("/", methods=['GET'])
+def home():
+    return "OK", 200
+
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers.get('X-Line-Signature', '')
@@ -319,8 +323,8 @@ def handle_message(event):
                 TextSendMessage(text=reply_text)
             )
 
-        elif user_message.isdigit() and len(user_message) == 9:
-            # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU 9 หลัก
+        elif all(sku.strip().isalnum() and len(sku.strip()) == 9 for sku in user_message.split()):
+            # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว โดยแยกตามช่องว่าง
             handle_stock_inquiry(event)
 
         else:
@@ -380,9 +384,9 @@ def handle_stock_inquiry(event):
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
 monitor_thread.start()
 
-# เริ่มต้น Thread สำหรับ keep_server_awake
-keep_awake_thread = threading.Thread(target=keep_server_awake, daemon=True)
-keep_awake_thread.start()
+# เริ่มต้น Thread สำหรับ keep server awake
+keep_alive_thread = threading.Thread(target=keep_server_awake, daemon=True)
+keep_alive_thread.start()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
+    app.run(host="0.0.0.0", port=10000, debug=False)
