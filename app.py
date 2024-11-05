@@ -189,21 +189,18 @@ def monitor_stock():
 
 # ฟังก์ชันเพื่อให้เซิร์ฟเวอร์ตื่นอยู่เสมอ
 def keep_server_awake():
+    sleep(10)  # รอให้เซิร์ฟเวอร์พร้อมก่อนทำ keep alive ครั้งแรก
     while True:
         try:
-            # ส่ง request ไปยังตัวเองเพื่อให้ server ตื่นอยู่
-            response = requests.get("http://127.0.0.1:10000/")
+            # ส่ง request ไปยัง IP ภายนอกเพื่อให้ server ตื่นอยู่
+            response = requests.get("http://10.210.162.89:10000/")
             print(f"Keep alive request sent, status code: {response.status_code}")
         except requests.exceptions.RequestException as e:
             print(f"Error during keep alive request: {e}")
 
-        sleep(300)  # ส่งทุกๆ 5 นาที
+        sleep(300)  # ส่งทุกๆ 5 นาที เพื่อให้ server ตื่นอยู่เสมอ
 
 # Endpoint ที่รับ Webhook จาก LINE
-@app.route("/", methods=['GET'])
-def home():
-    return "OK", 200
-
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers.get('X-Line-Signature', '')
@@ -323,7 +320,7 @@ def handle_message(event):
                 TextSendMessage(text=reply_text)
             )
 
-        elif all(sku.strip().isalnum() and len(sku.strip()) == 9 for sku in user_message.split()):
+        elif all(sku.isdigit() and len(sku) == 9 for sku in user_message.split()):
             # กรณีที่ผู้ใช้ส่งข้อความเป็น SKU หลายตัว โดยแยกตามช่องว่าง
             handle_stock_inquiry(event)
 
@@ -384,9 +381,9 @@ def handle_stock_inquiry(event):
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
 monitor_thread.start()
 
-# เริ่มต้น Thread สำหรับ keep server awake
+# เริ่มต้น Thread สำหรับ keep_server_awake
 keep_alive_thread = threading.Thread(target=keep_server_awake, daemon=True)
 keep_alive_thread.start()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
