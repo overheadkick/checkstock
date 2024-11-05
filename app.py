@@ -225,8 +225,9 @@ def handle_message(event):
         if user_message.startswith("monitor"):
             skus = user_message.split("\n")[1:] if "\n" in user_message else [user_message.split(" ")[1]]
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
-            # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
+            # ตรวจสอบว่าทุก SKU เป็นตัวเลข 9 หลักหรือไม่
             if all(len(sku) == 9 and sku.isdigit() for sku in skus):
+                # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
                 reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {', '.join(skus)} กรุณารอสักครู่..."
                 try:
                     line_bot_api.push_message(
@@ -240,7 +241,6 @@ def handle_message(event):
                         user_id,
                         TextSendMessage(text=reply_text)
                     )
-
                 # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
                 add_sku_to_monitor(user_id, skus)
             else:
@@ -278,46 +278,6 @@ def handle_message(event):
     except Exception as e:
         print("An unexpected error occurred in handle_message:", e)
         traceback.print_exc()
-
-# ฟังก์ชันแยกสำหรับการค้นหาสินค้า
-def handle_stock_inquiry(event):
-    user_id = event.source.user_id
-    product_codes = event.message.text.split("\n")
-    product_codes = [code.strip() for code in product_codes]
-    reply_text = "กำลังตรวจสอบข้อมูลสินค้าของคุณ กรุณารอสักครู่..."
-
-    # ส่งข้อความให้ผู้ใช้เพื่อแจ้งว่ากำลังดำเนินการ
-    try:
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=reply_text)
-        )
-    except LineBotApiError as e:
-        # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
-        print("Reply token expired, using push_message instead.")
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=reply_text)
-        )
-
-    # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
-    product_info_list = get_product_info(product_codes)
-    if product_info_list:
-        follow_up_text = ""
-        for product_info in product_info_list:
-            follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
-                               f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
-                               f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=follow_up_text.strip())
-        )
-    else:
-        follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=follow_up_text)
-        )
 
 # เริ่มต้น Thread สำหรับ monitor stock
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
