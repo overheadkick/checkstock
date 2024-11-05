@@ -125,76 +125,6 @@ def add_sku_to_monitor(user_id, skus):
                 logging.error("Error occurred while sending follow-up message:", e)
                 traceback.print_exc()
 
-# ฟังก์ชันเพื่อยกเลิกการ monitor SKU
-def remove_sku_from_monitor(user_id, skus):
-    if "all" in skus:
-        # ยกเลิกการ monitor ทั้งหมดสำหรับผู้ใช้
-        skus_to_remove = [sku for sku, users in monitoring_skus.items() if user_id in users]
-    else:
-        skus_to_remove = skus
-
-    for sku in skus_to_remove:
-        if sku in monitoring_skus:
-            if user_id in monitoring_skus[sku]:
-                monitoring_skus[sku].remove(user_id)
-                if not monitoring_skus[sku]:
-                    del monitoring_skus[sku]  # ลบ SKU ออกจาก monitoring_skus หากไม่มีผู้ใช้ monitor แล้ว
-                logging.info(f"Stopped monitoring SKU {sku} for user {user_id}")
-                reply_text = f"ระบบได้ยกเลิกการ monitor สินค้ารหัส {sku} เรียบร้อยแล้ว"
-                try:
-                    line_bot_api.push_message(
-                        user_id,
-                        TextSendMessage(text=reply_text)
-                    )
-                except LineBotApiError as e:
-                    logging.error("Error occurred while sending message:", e)
-                    traceback.print_exc()
-
-# ฟังก์ชันตรวจสอบสต็อกสินค้า
-def monitor_stock():
-    while True:
-        try:
-            for sku, user_ids in list(monitoring_skus.items()):
-                product_info = get_product_info([sku])
-                if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
-                    item_stock = int(product_info[0]["itemStock"])
-                    
-                    # ตรวจสอบจำนวนสต็อกและส่งการแจ้งเตือน
-                    logging.info(f"Checking stock for SKU {sku}, current stock: {item_stock}")
-                    if item_stock == 0:
-                        # สินค้าหมด แจ้งเตือนผู้ใช้
-                        for user_id in user_ids:
-                            try:
-                                line_bot_api.push_message(
-                                    user_id,
-                                    TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} หมดสต็อกแล้ว!")
-                                )
-                                logging.info(f"Notification sent to user {user_id} for SKU {sku} (out of stock)")
-                            except LineBotApiError as e:
-                                logging.error(f"Error occurred while sending notification to user {user_id}:", e)
-                                traceback.print_exc()
-                        
-                        # ลบ SKU ออกจากรายการ monitor เนื่องจากสินค้าหมดแล้ว
-                        del monitoring_skus[sku]
-
-                    elif item_stock < 10:
-                        # สินค้ากำลังจะหมด แจ้งเตือนผู้ใช้
-                        for user_id in user_ids:
-                            try:
-                                line_bot_api.push_message(
-                                    user_id,
-                                    TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
-                                )
-                                logging.info(f"Notification sent to user {user_id} for SKU {sku} (low stock)")
-                            except LineBotApiError as e:
-                                logging.error(f"Error occurred while sending notification to user {user_id}:", e)
-                                traceback.print_exc()
-
-            sleep(600)  # ตรวจสอบทุกๆ 10 นาที
-        except Exception as e:
-            logging.error("An unexpected error occurred in monitor_stock:", e)
-            traceback.print_exc()
-
 # Endpoint ที่รับ Webhook จาก LINE
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -231,28 +161,38 @@ def handle_message(event):
         processed_messages.add(message_id)
 
         if user_message.startswith("monitor"):
-            skus = user_message.split("\n")[1:] if "\n" in user_message else [user_message.split(" ")[1]]
-            skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
-            # ตรวจสอบว่าทุก SKU เป็นตัวเลข 9 หลักหรือไม่
-            if all(len(sku) == 9 and sku.isdigit() for sku in skus):
-                # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-                reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {', '.join(skus)} กรุณารอสักครู่..."
-                try:
+            # แยกข้อความเป็น SKU
+            skus = user_message.split()[1:] if len(user_message.split()) > 1 else []
+
+            if skus:
+                skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
+                # ตรวจสอบว่าทุก SKU เป็นตัวเลข 9 หลักหรือไม่
+                if all(len(sku) == 9 and sku.isdigit() for sku in skus):
+                    # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
+                    reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {', '.join(skus)} กรุณารอสักครู่..."
+                    try:
+                        line_bot_api.push_message(
+                            user_id,
+                            TextSendMessage(text=reply_text)
+                        )
+                    except LineBotApiError as e:
+                        logging.error("Reply token expired, using push_message instead.")
+                        line_bot_api.push_message(
+                            user_id,
+                            TextSendMessage(text=reply_text)
+                        )
+                    # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
+                    add_sku_to_monitor(user_id, skus)
+                else:
+                    # แจ้งเตือนหาก SKU ไม่ถูกต้อง
+                    reply_text = "คำสั่งไม่ถูกต้อง กรุณาระบุรหัสสินค้าให้ถูกต้องเป็นตัวเลข 9 หลัก"
                     line_bot_api.push_message(
                         user_id,
                         TextSendMessage(text=reply_text)
                     )
-                except LineBotApiError as e:
-                    # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
-                    logging.error("Reply token expired, using push_message instead.")
-                    line_bot_api.push_message(
-                        user_id,
-                        TextSendMessage(text=reply_text)
-                    )
-                # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
-                add_sku_to_monitor(user_id, skus)
             else:
-                reply_text = "คำสั่งไม่ถูกต้อง กรุณาระบุรหัสสินค้าให้ถูกต้องเป็นตัวเลข 9 หลัก"
+                # แจ้งเตือนหากไม่ระบุ SKU
+                reply_text = "กรุณาระบุ SKU ที่ต้องการ monitor"
                 line_bot_api.push_message(
                     user_id,
                     TextSendMessage(text=reply_text)
@@ -274,6 +214,7 @@ def handle_message(event):
             )
 
         else:
+            # แจ้งเตือนหากข้อความไม่ตรงกับคำสั่งใดๆ
             reply_text = "คำสั่งไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง"
             line_bot_api.push_message(
                 user_id,
@@ -286,10 +227,6 @@ def handle_message(event):
     except Exception as e:
         logging.error("An unexpected error occurred in handle_message:", e)
         traceback.print_exc()
-
-# เริ่มต้น Thread สำหรับ monitor stock
-monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
-monitor_thread.start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
