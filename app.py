@@ -1,4 +1,5 @@
 import threading
+import logging
 from time import sleep
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
@@ -9,6 +10,9 @@ import pandas as pd
 import io
 import os
 import traceback
+
+# ตั้งค่า logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
@@ -51,11 +55,11 @@ def get_product_info(product_codes):
 
                 return results
             else:
-                print("Column 'sku' not found in CSV")
+                logging.error("Column 'sku' not found in CSV")
         else:
-            print(f"Failed to fetch CSV data, status code: {response.status_code}")
+            logging.error(f"Failed to fetch CSV data, status code: {response.status_code}")
     except requests.exceptions.RequestException as e:
-        print(f"Error occurred while fetching CSV data: {e}")
+        logging.error(f"Error occurred while fetching CSV data: {e}")
     return []
 
 # ฟังก์ชันเพื่อเก็บ SKU ที่ต้องการ monitor
@@ -69,7 +73,7 @@ def add_sku_to_monitor(user_id, skus):
                 TextSendMessage(text=reply_text)
             )
         except LineBotApiError as e:
-            print("Error occurred while sending message:", e)
+            logging.error("Error occurred while sending message:", e)
             traceback.print_exc()
         return
 
@@ -87,7 +91,7 @@ def add_sku_to_monitor(user_id, skus):
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
-                print("Error occurred while sending message:", e)
+                logging.error("Error occurred while sending message:", e)
                 traceback.print_exc()
             continue
 
@@ -102,7 +106,7 @@ def add_sku_to_monitor(user_id, skus):
                         TextSendMessage(text=reply_text)
                     )
                 except LineBotApiError as e:
-                    print("Error occurred while sending message:", e)
+                    logging.error("Error occurred while sending message:", e)
                     traceback.print_exc()
                 continue
 
@@ -110,7 +114,7 @@ def add_sku_to_monitor(user_id, skus):
                 monitoring_skus[sku].append(user_id)
             else:
                 monitoring_skus[sku] = [user_id]
-            print(f"Monitoring SKU {sku} for user {user_id}")
+            logging.info(f"Monitoring SKU {sku} for user {user_id}")
             reply_text = f"ระบบได้เริ่มต้น monitor สินค้ารหัส {sku} แล้ว เราจะแจ้งเตือนคุณเมื่อสินค้ากำลังจะหมด"
             try:
                 line_bot_api.push_message(
@@ -118,7 +122,7 @@ def add_sku_to_monitor(user_id, skus):
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
-                print("Error occurred while sending follow-up message:", e)
+                logging.error("Error occurred while sending follow-up message:", e)
                 traceback.print_exc()
 
 # ฟังก์ชันเพื่อยกเลิกการ monitor SKU
@@ -135,7 +139,7 @@ def remove_sku_from_monitor(user_id, skus):
                 monitoring_skus[sku].remove(user_id)
                 if not monitoring_skus[sku]:
                     del monitoring_skus[sku]  # ลบ SKU ออกจาก monitoring_skus หากไม่มีผู้ใช้ monitor แล้ว
-                print(f"Stopped monitoring SKU {sku} for user {user_id}")
+                logging.info(f"Stopped monitoring SKU {sku} for user {user_id}")
                 reply_text = f"ระบบได้ยกเลิกการ monitor สินค้ารหัส {sku} เรียบร้อยแล้ว"
                 try:
                     line_bot_api.push_message(
@@ -143,64 +147,68 @@ def remove_sku_from_monitor(user_id, skus):
                         TextSendMessage(text=reply_text)
                     )
                 except LineBotApiError as e:
-                    print("Error occurred while sending message:", e)
+                    logging.error("Error occurred while sending message:", e)
                     traceback.print_exc()
 
 # ฟังก์ชันตรวจสอบสต็อกสินค้า
 def monitor_stock():
     while True:
-        for sku, user_ids in list(monitoring_skus.items()):
-            product_info = get_product_info([sku])
-            if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
-                item_stock = int(product_info[0]["itemStock"])
-                
-                # ตรวจสอบจำนวนสต็อกและส่งการแจ้งเตือน
-                print(f"Checking stock for SKU {sku}, current stock: {item_stock}")
-                if item_stock == 0:
-                    # สินค้าหมด แจ้งเตือนผู้ใช้
-                    for user_id in user_ids:
-                        try:
-                            line_bot_api.push_message(
-                                user_id,
-                                TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} หมดสต็อกแล้ว!")
-                            )
-                            print(f"Notification sent to user {user_id} for SKU {sku} (out of stock)")
-                        except LineBotApiError as e:
-                            print(f"Error occurred while sending notification to user {user_id}:", e)
-                            traceback.print_exc()
+        try:
+            for sku, user_ids in list(monitoring_skus.items()):
+                product_info = get_product_info([sku])
+                if product_info and product_info[0].get("itemStock") != "ไม่ระบุ":
+                    item_stock = int(product_info[0]["itemStock"])
                     
-                    # ลบ SKU ออกจากรายการ monitor เนื่องจากสินค้าหมดแล้ว
-                    del monitoring_skus[sku]
+                    # ตรวจสอบจำนวนสต็อกและส่งการแจ้งเตือน
+                    logging.info(f"Checking stock for SKU {sku}, current stock: {item_stock}")
+                    if item_stock == 0:
+                        # สินค้าหมด แจ้งเตือนผู้ใช้
+                        for user_id in user_ids:
+                            try:
+                                line_bot_api.push_message(
+                                    user_id,
+                                    TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} หมดสต็อกแล้ว!")
+                                )
+                                logging.info(f"Notification sent to user {user_id} for SKU {sku} (out of stock)")
+                            except LineBotApiError as e:
+                                logging.error(f"Error occurred while sending notification to user {user_id}:", e)
+                                traceback.print_exc()
+                        
+                        # ลบ SKU ออกจากรายการ monitor เนื่องจากสินค้าหมดแล้ว
+                        del monitoring_skus[sku]
 
-                elif item_stock < 10:
-                    # สินค้ากำลังจะหมด แจ้งเตือนผู้ใช้
-                    for user_id in user_ids:
-                        try:
-                            line_bot_api.push_message(
-                                user_id,
-                                TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
-                            )
-                            print(f"Notification sent to user {user_id} for SKU {sku} (low stock)")
-                        except LineBotApiError as e:
-                            print(f"Error occurred while sending notification to user {user_id}:", e)
-                            traceback.print_exc()
+                    elif item_stock < 10:
+                        # สินค้ากำลังจะหมด แจ้งเตือนผู้ใช้
+                        for user_id in user_ids:
+                            try:
+                                line_bot_api.push_message(
+                                    user_id,
+                                    TextSendMessage(text=f"แจ้งเตือน: สินค้ารหัส {sku} ใกล้หมดแล้ว! คงเหลือ {item_stock} ชิ้น")
+                                )
+                                logging.info(f"Notification sent to user {user_id} for SKU {sku} (low stock)")
+                            except LineBotApiError as e:
+                                logging.error(f"Error occurred while sending notification to user {user_id}:", e)
+                                traceback.print_exc()
 
-        sleep(600)  # ตรวจสอบทุกๆ 10 นาที
+            sleep(600)  # ตรวจสอบทุกๆ 10 นาที
+        except Exception as e:
+            logging.error("An unexpected error occurred in monitor_stock:", e)
+            traceback.print_exc()
 
 # Endpoint ที่รับ Webhook จาก LINE
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers.get('X-Line-Signature', '')
     body = request.get_data(as_text=True)
-    print("Request body:", body)
+    logging.info(f"Request body: {body}")
 
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        print("Invalid signature. Please check your channel secret and access token.")
+        logging.error("Invalid signature. Please check your channel secret and access token.")
         abort(400)
     except Exception as e:
-        print("An unexpected error occurred:", e)
+        logging.error("An unexpected error occurred:", e)
         traceback.print_exc()
         abort(500)
 
@@ -216,7 +224,7 @@ def handle_message(event):
 
         # ตรวจสอบว่าข้อความนี้เคยถูกประมวลผลแล้วหรือไม่
         if message_id in processed_messages:
-            print("Duplicate message detected. Skipping processing.")
+            logging.info("Duplicate message detected. Skipping processing.")
             return
 
         # เพิ่ม message_id ลงใน processed_messages เพื่อป้องกันการประมวลผลซ้ำ
@@ -236,7 +244,7 @@ def handle_message(event):
                     )
                 except LineBotApiError as e:
                     # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
-                    print("Reply token expired, using push_message instead.")
+                    logging.error("Reply token expired, using push_message instead.")
                     line_bot_api.push_message(
                         user_id,
                         TextSendMessage(text=reply_text)
@@ -273,10 +281,10 @@ def handle_message(event):
             )
 
     except LineBotApiError as e:
-        print("Error occurred while handling message:", e)
+        logging.error("Error occurred while handling message:", e)
         traceback.print_exc()
     except Exception as e:
-        print("An unexpected error occurred in handle_message:", e)
+        logging.error("An unexpected error occurred in handle_message:", e)
         traceback.print_exc()
 
 # เริ่มต้น Thread สำหรับ monitor stock
