@@ -30,7 +30,7 @@ processed_messages = set()
 # ฟังก์ชันเพื่อดึงข้อมูลสินค้าจาก CSV
 def get_product_info(product_codes):
     try:
-        response = requests.get(CSV_URL, timeout=10)
+        response = requests.get(CSV_URL, timeout=20)
         if response.status_code == 200:
             csv_data = response.content.decode('utf-8')
             df = pd.read_csv(io.StringIO(csv_data))
