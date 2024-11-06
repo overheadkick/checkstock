@@ -197,9 +197,9 @@ def keep_server_awake():
             print(f"Keep alive request sent, status code: {response.status_code}")
         except requests.exceptions.RequestException as e:
             print(f"Error during keep alive request: {e}")
-            time.sleep(10)  # ลองใหม่หลังรอ 10 วินาที
+            sleep(10)  # ลองใหม่หลังรอ 10 วินาที
         
-        time.sleep(300)  # ส่งทุกๆ 5 นาที
+        sleep(300)  # ส่งทุกๆ 5 นาที
 
 # Endpoint ที่รับ Webhook จาก LINE
 @app.route("/callback", methods=['POST'])
