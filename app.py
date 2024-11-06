@@ -241,24 +241,20 @@ def handle_message(event):
                     f"SKU ที่ไม่ถูกต้อง: {' '.join(invalid_skus)}"
                 )
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
-            else:
-                # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-                reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {' '.join(skus)} กรุณารอสักครู่..."
-                try:
-                    line_bot_api.reply_message(
-                        user_id,
-                        TextSendMessage(text=reply_text)
-                    )
-                except LineBotApiError as e:
-                    # หาก reply token ไม่สามารถได้ (เช่นหมดอายุ) ใช้ push_message แทน
-                    print("Reply token expired, using push_message instead.")
-                    line_bot_api.push_message(
-                        user_id,
-                        TextSendMessage(text=reply_text)
-                    )
-
-                # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
-                add_sku_to_monitor(user_id, skus)
+else:
+    # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
+    reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {' '.join(skus)} กรุณารอสักครู่..."
+    try:
+        line_bot_api.reply_message(
+            user_id,
+            TextSendMessage(text=reply_text)
+        )
+    except LineBotApiError as e:
+        # หาก reply token ไม่สามารถใช้ได้ (เช่นหมดอายุ) ให้แสดงข้อความแจ้งหรือจัดการตามที่เหมาะสม
+        print("Reply token expired. Unable to send reply to user. Please try again.")
+        
+    # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
+    add_sku_to_monitor(user_id, skus)
 
         elif user_message.startswith("unmonitor"):
             skus = user_message.split()[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามช่องว่าง
@@ -351,16 +347,12 @@ def handle_stock_inquiry(event):
     # ส่งข้อความให้ผู้ใช้เพื่อแจ้งว่ากำลังดำเนินการ
     try:
         line_bot_api.reply_message(
-            user_id,
+            event.reply_token,
             TextSendMessage(text=reply_text)
         )
     except LineBotApiError as e:
-        # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
-        print("Reply token expired, using push_message instead.")
-        line_bot_api.push_message(
-            user_id,
-            TextSendMessage(text=reply_text)
-        )
+        # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ให้พิมพ์ข้อความแจ้งใน log เท่านั้น
+        print("Reply token expired. Unable to send reply to user. Please try again.")
 
     # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
     product_info_list = get_product_info(product_codes)
