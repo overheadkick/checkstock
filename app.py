@@ -309,8 +309,7 @@ def handle_message(event):
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     monitor 123456010 654321009\n\n"
                 "**3. ยกเลิกการ Monitor สินค้า**\n"
-                "   - คำสั่ง: unmonitor <SKU>
-"
+                "   - คำสั่ง: unmonitor <SKU>"
                 "   - คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ที่ระบุ\n"
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     unmonitor 123456010 654321009\n\n"
