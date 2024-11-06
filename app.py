@@ -249,6 +249,13 @@ def handle_message(event):
                         user_id,
                         TextSendMessage(text=reply_text)
                     )
+                except LineBotApiError as e:
+                    # หาก reply token ไม่สามารถได้ (เช่นหมดอายุ) ใช้ push_message แทน
+                    print("Reply token expired, using push_message instead.")
+                    line_bot_api.push_message(
+                        user_id,
+                        TextSendMessage(text=reply_text)
+                    )
 
                 # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
                 add_sku_to_monitor(user_id, skus)
@@ -344,6 +351,13 @@ def handle_stock_inquiry(event):
     # ส่งข้อความให้ผู้ใช้เพื่อแจ้งว่ากำลังดำเนินการ
     try:
         line_bot_api.reply_message(
+            user_id,
+            TextSendMessage(text=reply_text)
+        )
+    except LineBotApiError as e:
+        # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
+        print("Reply token expired, using push_message instead.")
+        line_bot_api.push_message(
             user_id,
             TextSendMessage(text=reply_text)
         )
