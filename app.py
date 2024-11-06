@@ -189,19 +189,6 @@ def monitor_stock():
 
         sleep(600)  # ตรวจสอบทุกๆ 10 นาที
 
-# ฟังก์ชันเพื่อให้เซิร์ฟเวอร์ตื่นอยู่เสมอ
-def keep_server_awake():
-    while True:
-        try:
-            # ส่ง request ไปยังตัวเองเพื่อให้ server ตื่นอยู่
-            response = requests.get("http://127.0.0.1:5000/")
-            print(f"Keep alive request sent, status code: {response.status_code}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error during keep alive request: {e}")
-            sleep(10)  # ลองใหม่หลังรอ 10 วินาที
-        
-        sleep(300)  # ส่งทุกๆ 5 นาที
-
 # Endpoint ที่รับ Webhook จาก LINE
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -309,7 +296,7 @@ def handle_message(event):
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     monitor 123456010 654321009\n\n"
                 "**3. ยกเลิกการ Monitor สินค้า**\n"
-                "   - คำสั่ง: unmonitor <SKU>"
+                "   - คำสั่ง: unmonitor <SKU>\n"
                 "   - คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ที่ระบุ\n"
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     unmonitor 123456010 654321009\n\n"
@@ -397,10 +384,6 @@ def handle_stock_inquiry(event):
 # เริ่มต้น Thread สำหรับ monitor stock
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
 monitor_thread.start()
-
-# เริ่มต้น Thread สำหรับ keep server awake
-keep_awake_thread = threading.Thread(target=keep_server_awake, daemon=True)
-keep_awake_thread.start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
