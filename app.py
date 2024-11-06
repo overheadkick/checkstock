@@ -9,6 +9,7 @@ import pandas as pd
 import io
 import os
 import traceback
+import time
 
 app = Flask(__name__)
 
@@ -18,7 +19,7 @@ CHANNEL_SECRET = '01d856b72692ef4fe43ba42824a1dcba'
 line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
 
-# URL สำหรับดึงข้อมูล CSV
+# URL สำหรับดึงข้อมูลสินค้าจาก CSV
 CSV_URL = "https://www.allonline.7eleven.co.th/affiliateExport/?exportName=Item_Stock"
 
 # Dictionary สำหรับเก็บข้อมูล SKU ที่ผู้ใช้ต้องการ monitor
@@ -62,7 +63,7 @@ def get_product_info(product_codes):
 def add_sku_to_monitor(user_id, skus):
     current_monitored_skus = [sku for sku, users in monitoring_skus.items() if user_id in users]
     if len(current_monitored_skus) + len(skus) > 5:
-        reply_text = "คุณสามารถ monitor สินค้าได้สูงสุด 5 รายการเท่านั้น กรุณายกเลิกการ monitor สินค้าบางรายการก่อน"
+        reply_text = "คุณสามารถเห็น monitor สินค้าได้สูงสุด 5 รายการเท่านั้น กรุณายกเลิกการ monitor สินค้าบางรายการก่อน"
         try:
             line_bot_api.push_message(
                 user_id,
@@ -192,12 +193,13 @@ def keep_server_awake():
     while True:
         try:
             # ส่ง request ไปยังตัวเองเพื่อให้ server ตื่นอยู่
-            response = requests.get("http://localhost:5000/")
+            response = requests.get("http://127.0.0.1:5000/")
             print(f"Keep alive request sent, status code: {response.status_code}")
         except requests.exceptions.RequestException as e:
             print(f"Error during keep alive request: {e}")
+            time.sleep(10)  # ลองใหม่หลังรอ 10 วินาที
         
-        sleep(300)  # ส่งทุกๆ 5 นาที
+        time.sleep(300)  # ส่งทุกๆ 5 นาที
 
 # Endpoint ที่รับ Webhook จาก LINE
 @app.route("/callback", methods=['POST'])
@@ -245,7 +247,7 @@ def handle_message(event):
                     TextSendMessage(text=reply_text)
                 )
             except LineBotApiError as e:
-                # หาก reply token ไม่สามารถใช้งานได้ (เช่นหมดอายุ) ใช้ push_message แทน
+                # หาก reply token ไม่สามารถได้ (เช่นหมดอายุ) ใช้ push_message แทน
                 print("Reply token expired, using push_message instead.")
                 line_bot_api.push_message(
                     user_id,
@@ -269,7 +271,7 @@ def handle_message(event):
             if monitored_skus:
                 reply_text = "รายการ SKU ที่คุณกำลัง monitor อยู่:\n" + "\n".join(monitored_skus)
             else:
-                reply_text = "คุณไม่ได้ monitor SKU ใดอยู่ในขณะนี้"
+                reply_text = "คุณไม่ได้ monitor SKU ใดในขณะนี้"
             line_bot_api.push_message(
                 user_id,
                 TextSendMessage(text=reply_text)
