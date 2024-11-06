@@ -10,6 +10,7 @@ import io
 import os
 import traceback
 import time
+import re
 
 app = Flask(__name__)
 
@@ -236,26 +237,41 @@ def handle_message(event):
         # เพิ่ม message_id ลงใน processed_messages เพื่อป้องกันการประมวลผลซ้ำ
         processed_messages.add(message_id)
 
-        if user_message.startswith("monitor"):
+        if user_message == "monitor":
+            # กรณีที่ผู้ใช้พิมพ์ monitor แต่ไม่มี SKU ตามมา
+            reply_text = "กรุณาระบุ SKU ที่ต้องการ monitor หลังคำสั่ง monitor"
+            line_bot_api.push_message(user_id, TextSendMessage(text=reply_text))
+
+        elif user_message.startswith("monitor"):
             skus = user_message.split()[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามช่องว่าง
             skus = [sku.strip() for sku in skus]  # ลบช่องว่างรอบๆ SKU
-            # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
-            reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {' '.join(skus)} กรุณารอสักครู่..."
-            try:
-                line_bot_api.push_message(
-                    user_id,
-                    TextSendMessage(text=reply_text)
-                )
-            except LineBotApiError as e:
-                # หาก reply token ไม่สามารถได้ (เช่นหมดอายุ) ใช้ push_message แทน
-                print("Reply token expired, using push_message instead.")
-                line_bot_api.push_message(
-                    user_id,
-                    TextSendMessage(text=reply_text)
-                )
 
-            # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
-            add_sku_to_monitor(user_id, skus)
+            # ตรวจสอบเงื่อนไขของ SKU
+            invalid_skus = [sku for sku in skus if not re.match(r'^\d{9}$', sku)]
+            if invalid_skus:
+                reply_text = (
+                    "SKU ที่คุณกรอกไม่ถูกต้อง กรุณาตรวจสอบว่า SKU แต่ละตัวมีความยาว 9 หลักและเป็นตัวเลขเท่านั้น\n"
+                    f"SKU ที่ไม่ถูกต้อง: {' '.join(invalid_skus)}"
+                )
+                line_bot_api.push_message(user_id, TextSendMessage(text=reply_text))
+            else:
+                # ตอบกลับผู้ใช้ก่อนเพื่อยืนยันการเริ่ม monitor
+                reply_text = f"กำลังตรวจสอบข้อมูลสินค้ารหัส {' '.join(skus)} กรุณารอสักครู่..."
+                try:
+                    line_bot_api.push_message(
+                        user_id,
+                        TextSendMessage(text=reply_text)
+                    )
+                except LineBotApiError as e:
+                    # หาก reply token ไม่สามารถได้ (เช่นหมดอายุ) ใช้ push_message แทน
+                    print("Reply token expired, using push_message instead.")
+                    line_bot_api.push_message(
+                        user_id,
+                        TextSendMessage(text=reply_text)
+                    )
+
+                # เพิ่ม SKU ไปยัง monitor หลังจากตอบกลับผู้ใช้
+                add_sku_to_monitor(user_id, skus)
 
         elif user_message.startswith("unmonitor"):
             skus = user_message.split()[1:]  # ดึง SKU หลายตัวจากข้อความ โดยแยกตามช่องว่าง
@@ -293,7 +309,8 @@ def handle_message(event):
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     monitor 123456010 654321009\n\n"
                 "**3. ยกเลิกการ Monitor สินค้า**\n"
-                "   - คำสั่ง: unmonitor <SKU>\n"
+                "   - คำสั่ง: unmonitor <SKU>
+"
                 "   - คำอธิบาย: ใช้เพื่อยกเลิกการ monitor SKU ที่ระบุ\n"
                 "   - ตัวอย่างการใช้งาน:\n"
                 "     unmonitor 123456010 654321009\n\n"
