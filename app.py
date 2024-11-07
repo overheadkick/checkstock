@@ -332,40 +332,37 @@ def handle_stock_inquiry(event):
             traceback.print_exc()
             return
 
-    # ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
-    product_info_list = get_product_info(product_codes)
-    if product_info_list:
-        follow_up_text = ""
-        for product_info in product_info_list:
-            follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
-                               f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
-                               f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
+# ดึงข้อมูลสินค้าและส่งข้อความติดตามผลให้ผู้ใช้
+product_info_list = get_product_info(product_codes)
+follow_up_text = ""
+if product_info_list:
+    for product_info in product_info_list:
+        follow_up_text += (f"รหัสสินค้า: {product_info['sku']}\n"
+                           f"ชื่อสินค้า: {product_info.get('name', 'ไม่ระบุ')}\n"
+                           f"จำนวนสต็อก: {product_info.get('itemStock', 'ไม่ระบุ')} ชิ้น\n\n")
+else:
+    follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
+
+try:
+    # พยายามใช้ reply_message ก่อน
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=follow_up_text.strip()))
+except LineBotApiError as e:
+    if e.status_code == 400 and "Invalid reply token" in str(e):
+        print("Reply token is invalid, switching to push_message.")
         try:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=follow_up_text.strip()))
-        except LineBotApiError as e:
-            if e.status_code == 400 and "Invalid reply token" in str(e):
-                print("Reply token is invalid, switching to push_message.")
-                line_bot_api.push_message(
-                    user_id,
-                    TextSendMessage(text=follow_up_text.strip())
-                )
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=follow_up_text.strip())
+            )
+        except LineBotApiError as push_e:
+            if push_e.status_code == 429:
+                print("Monthly message limit reached.")
             else:
-                print("Error occurred while sending follow-up message:", e)
+                print("Error occurred while sending push message:", push_e)
                 traceback.print_exc()
     else:
-        follow_up_text = "ไม่พบข้อมูลสินค้าตามรหัสที่คุณกรอกมา"
-        try:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=follow_up_text))
-        except LineBotApiError as e:
-            if e.status_code == 400 and "Invalid reply token" in str(e):
-                print("Reply token is invalid, switching to push_message.")
-                line_bot_api.push_message(
-                    user_id,
-                    TextSendMessage(text=follow_up_text)
-                )
-            else:
-                print("Error occurred while sending follow-up message:", e)
-                traceback.print_exc()
+        print("Error occurred while sending reply message:", e)
+        traceback.print_exc()
 
 # เริ่มต้น Thread สำหรับ monitor stock
 monitor_thread = threading.Thread(target=monitor_stock, daemon=True)
